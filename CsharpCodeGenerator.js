@@ -44,13 +44,14 @@ define(function (require, exports, module) {
      * @param {type.UMLPackage} baseModel
      * @param {string} basePath generated files and directories to be placed
      */
-    function CsharpCodeGenerator(baseModel, basePath) {
+    function CsharpCodeGenerator(baseModel, basePath,projectName) {
 
         /** @member {type.Model} */
         this.baseModel = baseModel;
 
         /** @member {string} */
         this.basePath = basePath;
+        this.projectName = projectName;
 
     }
 
@@ -89,7 +90,13 @@ define(function (require, exports, module) {
 
         // Package
         if (elem instanceof type.UMLPackage) {
-            fullPath = path + "/" + elem.name;
+            if(elem.tags && elem.tags.filter(function(item){
+                return item.name=="ProjectCSharp";
+            }).length>0){
+                fullPath = path + "/GeneratedCode";                                
+            }else{
+                fullPath = path + "/" + elem.name;                
+            }
             directory = FileSystem.getDirectoryForPath(fullPath);
             directory.create(function (err, stat) {
                 if (!err) {
@@ -106,9 +113,6 @@ define(function (require, exports, module) {
                 }
             });
         } else if (elem instanceof type.UMLClass) {
-
-
-
             // AnnotationType
             if (isAnnotationType) {
                 console.log('annotationType generate');
@@ -198,7 +202,12 @@ define(function (require, exports, module) {
             path = _.map(elem._parent.getPath(this.baseModel), function (e) { return e.name; }).join(".");
         }
         if (path) {
-            codeWriter.writeLine("namespace " + path + "{");
+            if(this.projectName){
+                codeWriter.writeLine("namespace " +this.projectName+"."+ path + "{");
+            }else{
+                codeWriter.writeLine("namespace " + path + "{");    
+            }
+            
             codeWriter.indent();
         }
         if (writeFunction === "writeAnnotationType") {
@@ -815,8 +824,11 @@ define(function (require, exports, module) {
         if (elem.isAbstract === true) {
             modifiers.push("abstract");
         }
-        if (elem.isFinalSpecialization === true || elem.isLeaf === true) {
+        if (elem.isFinalSpecialization === true) {
             modifiers.push("sealed");
+        }
+        if (elem.isLeaf === true) {
+            modifiers.push("partial");
         }
         //if (elem.concurrency === UML.CCK_CONCURRENT) {
             //http://msdn.microsoft.com/ko-kr/library/c5kehkcz.aspx
@@ -853,17 +865,15 @@ define(function (require, exports, module) {
         });
         return _.map(realizations, function (gen) { return gen.target; });
     };
-
-
     /**
      * Generate
      * @param {type.Model} baseModel
      * @param {string} basePath
      * @param {Object} options
      */
-    function generate(baseModel, basePath, options) {
-        var result = new $.Deferred();
-        var csharpCodeGenerator = new CsharpCodeGenerator(baseModel, basePath);
+    function generate(baseModel, basePath,projectName, options) {
+        var result = new $.Deferred();        
+        var csharpCodeGenerator = new CsharpCodeGenerator(baseModel, basePath,projectName);
         return csharpCodeGenerator.generate(baseModel, basePath, options);
     }
 

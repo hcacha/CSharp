@@ -38,12 +38,17 @@ define(function (require, exports, module) {
         FileSystem          = app.getModule("filesystem/FileSystem"),
         FileSystemError     = app.getModule("filesystem/FileSystemError"),
         ExtensionUtils      = app.getModule("utils/ExtensionUtils"),
-        UML                 = app.getModule("uml/UML");
+        UML                 = app.getModule("uml/UML"),
+        FileUtils           = app.getModule("file/FileUtils");        
+    
 
     var CodeGenUtils        = require("CodeGenUtils"),
         CsharpPreferences   = require("CsharpPreferences"),
         CsharpCodeGenerator = require("CsharpCodeGenerator"),
         CsharpReverseEngineer = require("CsharpReverseEngineer");
+        
+    require("HelperUtils");
+    
 
     /**
      * Commands IDs
@@ -72,15 +77,24 @@ define(function (require, exports, module) {
             ElementPickerDialog.showDialog("Select a base model to generate codes", null, type.UMLPackage)
                 .done(function (buttonId, selected) {
                     if (buttonId === Dialogs.DIALOG_BTN_OK && selected) {
-                        base = selected;
-
+                        base = selected;                        
                         // If path is not assigned, popup Open Dialog to select a folder
                         if (!path) {
-                            FileSystem.showOpenDialog(false, true, "Select a folder where generated codes to be located", null, null, function (err, files) {
+                            FileSystem.showOpenDialog(false, false, "Select a C# project where generated codes to be located", null, ["csproj"], function (err, files) {
                                 if (!err) {
                                     if (files.length > 0) {
-                                        path = files[0];
-                                        CsharpCodeGenerator.generate(base, path, options).then(result.resolve, result.reject);
+                                        var filePath=files[0];
+                                        var fileExt= FileUtils.getFileExtension(filePath);
+                                        if(fileExt!="csproj"){
+                                            Dialogs.showAlertDialog("Select a C# project.");   
+                                            result.reject(FileSystem.USER_CANCELED);                                                                                                                         
+                                        }else{
+                                            var fileBase=FileUtils.getBaseName(filePath);
+                                            var projectName=fileBase.replace("."+fileExt,"");
+                                            path = files[0].replace(fileBase,"");
+                                            CsharpCodeGenerator.generate(base, path,projectName, options).then(result.resolve, result.reject);                                            
+                                        }
+                                        
                                     } else {
                                         result.reject(FileSystem.USER_CANCELED);
                                     }
@@ -98,11 +112,21 @@ define(function (require, exports, module) {
         } else {
             // If path is not assigned, popup Open Dialog to select a folder
             if (!path) {
-                FileSystem.showOpenDialog(false, true, "Select a folder where generated codes to be located", null, null, function (err, files) {
+                FileSystem.showOpenDialog(false, false, "Select a C# project where generated codes to be located", null, null, function (err, files) {
                     if (!err) {
                         if (files.length > 0) {
-                            path = files[0];
-                            CsharpCodeGenerator.generate(base, path, options).then(result.resolve, result.reject);
+                            path = files[0];                            
+                            var filePath=files[0];
+                            var fileExt= FileUtils.getFileExtension(filePath);
+                            if(fileExt!="csproj"){
+                                Dialogs.showAlertDialog("Select a C# project.");   
+                                result.reject(FileSystem.USER_CANCELED);                                                                                                                         
+                            }else{
+                                var fileBase=FileUtils.getBaseName(filePath);
+                                var projectName=fileBase.replace("."+fileExt,"");
+                                path = files[0].replace(fileBase,"");
+                                CsharpCodeGenerator.generate(base, path,projectName, options).then(result.resolve, result.reject);                                            
+                            }
                         } else {
                             result.reject(FileSystem.USER_CANCELED);
                         }
@@ -110,8 +134,8 @@ define(function (require, exports, module) {
                         result.reject(err);
                     }
                 });
-            } else {
-                CsharpCodeGenerator.generate(base, path, options).then(result.resolve, result.reject);
+            } else {                
+                CsharpCodeGenerator.generate(base, path,null, options).then(result.resolve, result.reject);
             }
         }
         return result.promise();
