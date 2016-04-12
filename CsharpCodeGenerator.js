@@ -519,13 +519,14 @@ define(function (require, exports, module) {
         codeWriter.indent();
 
         // Constructor
-        this.writeConstructor(codeWriter, elem, options);
-        codeWriter.writeLine();
+        //this.writeConstructor(codeWriter, elem, options);
+        //codeWriter.writeLine();
 
         // Member Variables
         // (from attributes)
         for (i = 0, len = elem.attributes.length; i < len; i++) {
-            this.writeMemberVariable(codeWriter, elem.attributes[i], options);
+            //this.writeMemberVariable(codeWriter, elem.attributes[i], options);
+            this.writeProperty(codeWriter,elem.attributes[i], options);
             codeWriter.writeLine();
         }
         // (from associations)
@@ -538,11 +539,13 @@ define(function (require, exports, module) {
         for (i = 0, len = associations.length; i < len; i++) {
             var asso = associations[i];
             if (asso.end1.reference === elem && asso.end2.navigable === true) {
-                this.writeMemberVariable(codeWriter, asso.end2, options,classNamespace);
+                //this.writeMemberVariable(codeWriter, asso.end2, options,classNamespace);
+                this.writeProperty(codeWriter, asso.end2, options,classNamespace);
                 codeWriter.writeLine();
                 console.log('assoc end1');
             } else if (asso.end2.reference === elem && asso.end1.navigable === true) {
-                this.writeMemberVariable(codeWriter, asso.end1, options,classNamespace);
+                //this.writeMemberVariable(codeWriter, asso.end1, options,classNamespace);
+                this.writeProperty(codeWriter, asso.end1, options,classNamespace);
                 codeWriter.writeLine();
                 console.log('assoc end2');
             }
@@ -753,6 +756,43 @@ define(function (require, exports, module) {
             codeWriter.writeLine(terms.join(" ") + ";");
         }
     };
+    
+    /**
+     * Write Property
+     * @param {StringWriter} codeWriter
+     * @param {type.Model} elem
+     * @param {Object} options
+     */
+
+    CsharpCodeGenerator.prototype.writeProperty = function (codeWriter, elem, options,classNamespace) {
+
+        if (elem.name.length > 0) {
+            var terms = [];
+            // doc
+            this.writeDoc(codeWriter, elem.documentation, options);
+            // modifiers
+            var _modifiers = this.getModifiers(elem);
+            if (_modifiers.length > 0) {             
+                terms.push(_modifiers.join(" "));
+            }
+            // type
+            terms.push(this.getType(elem,classNamespace));
+            // name
+            terms.push(elem.name);
+            
+            terms.push("{");
+            terms.push("get;");
+            terms.push("set;");
+            terms.push("}");
+            // initial value
+            if (elem.defaultValue && elem.defaultValue.length > 0) {
+                terms.push("= " + elem.defaultValue);
+                codeWriter.writeLine(terms.join(" ") + ";");
+            }else{
+                codeWriter.writeLine(terms.join(" "));    
+            }            
+        }
+    };
 
 
     /**
@@ -834,8 +874,11 @@ define(function (require, exports, module) {
         if (elem.isFinalSpecialization === true) {
             modifiers.push("sealed");
         }
-        if (elem.isLeaf === true) {
+        if (elem instanceof type.UMLClass &&  !elem.isLeaf) {
             modifiers.push("partial");
+        }
+        if (elem instanceof type.UMLAttribute &&  !elem.isLeaf) {
+            modifiers.push("virtual");
         }
         //if (elem.concurrency === UML.CCK_CONCURRENT) {
             //http://msdn.microsoft.com/ko-kr/library/c5kehkcz.aspx
