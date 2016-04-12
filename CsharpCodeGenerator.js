@@ -203,17 +203,16 @@ define(function (require, exports, module) {
         }
         if (path) {
             if(this.projectName){
-                codeWriter.writeLine("namespace " +this.projectName+"."+ path + "{");
-            }else{
-                codeWriter.writeLine("namespace " + path + "{");    
+                path=this.projectName+"."+ path;                
             }
+            codeWriter.writeLine("namespace " + path + "{");
             
             codeWriter.indent();
         }
         if (writeFunction === "writeAnnotationType") {
             this.writeAnnotationType(codeWriter, elem, options);
         } else if (writeFunction === "writeClass") {
-            this.writeClass(codeWriter, elem, options);
+            this.writeClass(codeWriter, elem, options,path);
         } else if (writeFunction === "writeInterface") {
             this.writeInterface(codeWriter, elem, options);
         } else if (writeFunction === "writeEnum") {
@@ -474,7 +473,7 @@ define(function (require, exports, module) {
      * @param {type.Model} elem
      * @param {Object} options
      */
-    CsharpCodeGenerator.prototype.writeClass = function (codeWriter, elem, options) {
+    CsharpCodeGenerator.prototype.writeClass = function (codeWriter, elem, options,classNamespace) {
 
 
         var i, len, terms = [];
@@ -539,11 +538,11 @@ define(function (require, exports, module) {
         for (i = 0, len = associations.length; i < len; i++) {
             var asso = associations[i];
             if (asso.end1.reference === elem && asso.end2.navigable === true) {
-                this.writeMemberVariable(codeWriter, asso.end2, options);
+                this.writeMemberVariable(codeWriter, asso.end2, options,classNamespace);
                 codeWriter.writeLine();
                 console.log('assoc end1');
             } else if (asso.end2.reference === elem && asso.end1.navigable === true) {
-                this.writeMemberVariable(codeWriter, asso.end1, options);
+                this.writeMemberVariable(codeWriter, asso.end1, options,classNamespace);
                 codeWriter.writeLine();
                 console.log('assoc end2');
             }
@@ -685,12 +684,22 @@ define(function (require, exports, module) {
      * @return {string}
      */
 
-    CsharpCodeGenerator.prototype.getType = function (elem) {
+    CsharpCodeGenerator.prototype.getType = function (elem,classNamespace) {
         var _type = "void";
         // type name
         if (elem instanceof type.UMLAssociationEnd) {
             if (elem.reference instanceof type.UMLModelElement && elem.reference.name.length > 0) {
-                _type = elem.reference.name;
+                if(elem.reference instanceof type.UMLClass && classNamespace){
+                    var path = null;
+                    path = _.map(elem.reference._parent.getPath(this.baseModel), function (e) { return e.name; }).join(".");
+                    if ((this.projectName?this.projectName+"."+path:path)!=classNamespace) {
+                        _type = path+"."+ elem.reference.name;
+                    }else{
+                        _type = elem.reference.name;
+                    }
+                }else{
+                    _type = elem.reference.name;
+                }                
             }
         } else {
             if (elem.type instanceof type.UMLModelElement && elem.type.name.length > 0) {
@@ -699,15 +708,13 @@ define(function (require, exports, module) {
                 _type = elem.type;
             }
         }
-
-
         // multiplicity
         if (elem.multiplicity) {
             if (_.contains(["0..*", "1..*", "*"], elem.multiplicity.trim())) {
                 if (elem.isOrdered === true) {
                     _type = "List<" + _type + ">";
                 } else {
-                    _type = "HashSet<" + _type + ">";
+                    _type = "ICollection<" + _type + ">";
                 }
             } else if (elem.multiplicity !== "1" && elem.multiplicity.match(/^\d+$/)) { // number
                 _type += "[]";
@@ -724,7 +731,7 @@ define(function (require, exports, module) {
      * @param {Object} options
      */
 
-    CsharpCodeGenerator.prototype.writeMemberVariable = function (codeWriter, elem, options) {
+    CsharpCodeGenerator.prototype.writeMemberVariable = function (codeWriter, elem, options,classNamespace) {
 
         if (elem.name.length > 0) {
             var terms = [];
@@ -736,7 +743,7 @@ define(function (require, exports, module) {
                 terms.push(_modifiers.join(" "));
             }
             // type
-            terms.push(this.getType(elem));
+            terms.push(this.getType(elem,classNamespace));
             // name
             terms.push(elem.name);
             // initial value
