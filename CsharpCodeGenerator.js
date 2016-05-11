@@ -501,7 +501,18 @@ define(function (require, exports, module) {
         // Extends
         var _extends = this.getSuperClasses(elem);
         if (_extends.length > 0) {
-            terms.push(": " + _extends[0].name);
+			var path;
+			if (_extends[0]._parent) {
+				path = _.map(_extends[0]._parent.getPath(this.baseModel), function (e) { return e.name; }).join(".");
+			}
+			if (path) {
+				if(this.projectName){
+					path=this.projectName+"."+ path;                
+				}
+				terms.push(": " + path+"."+_extends[0].name);
+			}else{
+				terms.push(": " + _extends[0].name);				
+			}
         }
 
         // Implements
